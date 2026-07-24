@@ -1,0 +1,53 @@
+import mysql.connector
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Connect to MySQL database (Update credentials as needed)
+conn = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password='password',
+    database='retail_inventory'
+)
+cursor = conn.cursor()
+
+# Create tables if not exists
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS products (
+        product_id INT AUTO_INCREMENT PRIMARY KEY,
+        product_name VARCHAR(255),
+        category VARCHAR(255),
+        stock_quantity INT,
+        price DECIMAL(10,2)
+    )
+''')
+
+# Insert sample data
+cursor.execute("""
+    INSERT INTO products (product_name, category, stock_quantity, price) VALUES
+    ('Laptop', 'Electronics', 10, 999.99),
+    ('Smartphone', 'Electronics', 25, 499.99),
+    ('Desk Chair', 'Furniture', 15, 129.99),
+    ('Coffee Maker', 'Appliances', 8, 79.99)
+""")
+conn.commit()
+
+# Retrieve data and create a Pandas DataFrame
+query = "SELECT * FROM products"
+cursor.execute(query)
+rows = cursor.fetchall()
+columns = ['Product ID', 'Product Name', 'Category', 'Stock Quantity', 'Price']
+df = pd.DataFrame(rows, columns=columns)
+
+# Plot inventory levels
+plt.figure(figsize=(8, 5))
+plt.bar(df['Product Name'], df['Stock Quantity'], color='skyblue')
+plt.xlabel('Product')
+plt.ylabel('Stock Quantity')
+plt.title('Retail Inventory Levels')
+plt.xticks(rotation=45)
+plt.show()
+
+# Close connection
+cursor.close()
+conn.close()
