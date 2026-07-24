@@ -1,11 +1,13 @@
 """
-Tesla Service Campaign Operations — Rollout Intelligence.
+Tesla Service Campaign Operations: Campaign Rollout Planning and
+Compliance Forecasting.
 
 Campaign inventory, affected-vehicle counts, and remedy types are real
 data from the public NHTSA recall database. Weekly capacity inputs and
 all resulting rollout schedules are a modeled scenario.
 """
 
+import datetime as dt
 import sqlite3
 import sys
 from pathlib import Path
@@ -16,11 +18,14 @@ import streamlit as st
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from simulator.rollout import simulate  # noqa: E402
+from simulator.compliance import deadlines_with_status  # noqa: E402
+from export.launch_plan import build_launch_plan_pdf  # noqa: E402
 
 DB_PATH = str(Path(__file__).resolve().parents[2] / "data" / "campaigns.db")
 
-st.set_page_config(page_title="Tesla Service Campaigns", page_icon="⚡",
-                   layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Campaign Rollout Planning and Compliance Forecasting",
+    page_icon="⚡", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -69,8 +74,8 @@ div[data-testid="stNumberInputContainer"] { background: #ffffff !important; }
 
 .header-title {
     font-family: 'Oswald', sans-serif;
-    font-size: 68px; font-weight: 700; color: #0a0a0a;
-    letter-spacing: -1px; line-height: 0.92; text-transform: uppercase;
+    font-size: 52px; font-weight: 700; color: #0a0a0a;
+    letter-spacing: -1px; line-height: 1.02; text-transform: uppercase;
     margin-bottom: 18px;
 }
 
@@ -259,7 +264,8 @@ h1, h2 = st.columns([2.1, 1])
 with h1:
     st.markdown("""
     <div class='tesla-wordmark'>TESLA · SERVICE CAMPAIGN OPERATIONS</div>
-    <div class='header-title'>CAMPAIGN<br>ROLLOUT<br>INTELLIGENCE</div>
+    <div class='header-title'>CAMPAIGN ROLLOUT<br>PLANNING &amp;
+    COMPLIANCE<br>FORECASTING</div>
     <div class='header-subtitle'>
         NHTSA recall data &nbsp;·&nbsp; Capacity modeling &nbsp;·&nbsp;
         Rollout sequencing &nbsp;·&nbsp; 2013&ndash;2026
@@ -292,6 +298,7 @@ with st.sidebar:
     section("CAMPAIGN")
     choice = st.selectbox("Campaign", list(labels.keys()),
                           label_visibility="collapsed")
+    row = campaigns[campaigns.campaign_number == labels[choice]].iloc[0]
     st.markdown("<br>", unsafe_allow_html=True)
     section("WEEKLY CAPACITY")
     parts = st.number_input("Parts per week", 500, 100000, 8000, 500)
@@ -302,8 +309,18 @@ with st.sidebar:
                 "Only capacity constrained campaigns are listed. OTA "
                 "campaigns complete on release and need no sequencing.</p>",
                 unsafe_allow_html=True)
-
-row = campaigns[campaigns.campaign_number == labels[choice]].iloc[0]
+    st.markdown("<br>", unsafe_allow_html=True)
+    section("COMPLIANCE CALENDAR")
+    _filed = dt.date.fromisoformat(row.report_date)
+    notification_date = st.date_input(
+        "Owner notification date", value=_filed + dt.timedelta(days=60))
+    st.markdown("<p style='font-family:JetBrains Mono,monospace;"
+                "font-size:10px;color:#b0ada5;line-height:1.7;'>"
+                "Defaults to 60 days after filing, the legal deadline under "
+                "49 CFR 577.7(a)(1). Adjust to a planned notification date "
+                "to see the six 49 CFR 573.7(a) quarterly completion report "
+                "deadlines the rollout has to clear.</p>",
+                unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────── simulate
 frames = []
@@ -325,6 +342,28 @@ peak_phased = int(weekly.loc[weekly.strategy == "capacity_matched",
                              "backlog"].max())
 binding = "PARTS" if parts <= slots else "SLOTS"
 throughput = min(parts, slots)
+
+# Wave schedule, shared by the Regional Sequencing tab and the launch plan
+# export: full capacity applied to one region at a time.
+affected = int(row.potentially_affected)
+per_region = affected // regions
+remainder = affected - per_region * regions
+region_sizes = [per_region] * regions
+region_sizes[0] += remainder
+
+waves, cursor = [], 0
+for i, size in enumerate(region_sizes):
+    dur = -(-size // throughput)
+    waves.append({
+        "region": f"REGION {i + 1}",
+        "start": cursor + 1,
+        "end": cursor + dur,
+        "weeks": dur,
+        "vehicles": size,
+    })
+    cursor += dur
+wave_df = pd.DataFrame(waves)
+par_dur = -(-max(region_sizes) // max(throughput // regions, 1))
 
 k = st.columns(5)
 with k[0]:
@@ -446,7 +485,15 @@ with tab2:
                                tickfont=AXIS_FONT))
     st.plotly_chart(f, use_container_width=True)
 
-    section("CUMULATIVE REPAIRS COMPLETED")
+    section("CUMULATIVE REPAIRS COMPLETED · WITH QUARTERLY REPORTING DEADLINES")
+
+    weekly_cumulative = dict(zip(
+        weekly.loc[weekly.strategy == "capacity_matched", "week_number"],
+        weekly.loc[weekly.strategy == "capacity_matched", "cumulative"]))
+    total_affected = int(row.potentially_affected)
+    deadlines = deadlines_with_status(notification_date, weekly_cumulative,
+                                      total_affected)
+
     f = go.Figure()
     for s, col, nm, dash, w in [
             ("notify_all", RED, "Notify all at once", 'solid', 2.5),
@@ -455,6 +502,15 @@ with tab2:
         f.add_trace(go.Scatter(x=d.week_number, y=d.cumulative, mode='lines',
                                name=nm,
                                line=dict(color=col, width=w, dash=dash)))
+    for i, dl in enumerate(deadlines, start=1):
+        wk = dl["week"]
+        if 0 <= wk <= max(weeks, 1):
+            vcolor = INK if dl["cleared"] else RED
+            f.add_vline(
+                x=wk, line=dict(color=vcolor, width=1.5, dash="dash"),
+                annotation_text=f"Q{i}",
+                annotation_font=dict(color=vcolor, size=10,
+                                     family='JetBrains Mono'))
     f.update_layout(**PLOT_THEME, height=300,
                     margin=dict(l=10, r=10, t=40, b=40),
                     legend=LEGEND,
@@ -465,6 +521,35 @@ with tab2:
                                gridcolor='#ece9e2', zeroline=False,
                                tickfont=AXIS_FONT))
     st.plotly_chart(f, use_container_width=True)
+
+    st.markdown(
+        "<p style='font-family:JetBrains Mono,monospace;font-size:10px;"
+        "color:#b0ada5;'>Q1&ndash;Q6 mark the 49 CFR 573.7(a) quarterly "
+        "completion report deadlines computed from the owner notification "
+        "date in the sidebar. INK = fully complete by that week. RED = "
+        "that quarter's report would show a completion rate below 100%. "
+        "Completion-over-time here is modeled, not observed. NHTSA "
+        "does not publish it at campaign level.</p>", unsafe_allow_html=True)
+
+    n_cleared = sum(1 for d in deadlines if d["cleared"])
+    for i, dl in enumerate(deadlines, start=1):
+        cls = "badge-good" if dl["cleared"] else "badge-risk"
+        label = "CLEARED" if dl["cleared"] else "AT RISK"
+        in_window = "inside rollout window" if 0 <= dl["week"] <= weeks \
+            else "outside plotted range"
+        st.markdown(f"""<div class='row-item'>
+            <div class='row-name'>Q{i} &nbsp;·&nbsp;
+            <span class='row-mono'>{dl['due_date'].isoformat()}</span>
+            &nbsp;·&nbsp; week {dl['week']:.0f} &nbsp;·&nbsp;
+            <span style='color:#8a877f;'>{in_window}</span></div>
+            <div class='row-right'>
+              <span class='status-badge {cls}'>{label}</span>
+            </div></div>""", unsafe_allow_html=True)
+    st.markdown(
+        f"<p style='font-family:JetBrains Mono,monospace;font-size:10px;"
+        f"color:#b0ada5;margin-top:8px;'>{n_cleared} of 6 quarterly "
+        f"deadlines already show full completion under this capacity "
+        f"scenario.</p>", unsafe_allow_html=True)
 
     st.markdown(f"""<div class='finding-card accent-red'>
         <div class='finding-label'>THE RESULT</div>
@@ -478,30 +563,41 @@ with tab2:
         experience for owners and materially different load on service
         centers.</div></div>""", unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    section("EXPORT")
+    st.markdown(
+        "<p style='font-size:13px;line-height:1.7;max-width:800px;'>"
+        "One-page summary for this campaign and capacity scenario: wave "
+        "order, weekly invitation volumes, regional gates, the completion "
+        "trajectory, and which quarterly deadlines fall inside the rollout "
+        "window.</p>", unsafe_allow_html=True)
+    pdf_bytes = build_launch_plan_pdf(
+        campaign_number=row.campaign_number,
+        component=row.component,
+        remedy_type=row.remedy_type,
+        affected_vehicles=total_affected,
+        parts_per_week=parts,
+        slots_per_week=slots,
+        regions=regions,
+        strategy_label="Capacity matched (phased)",
+        weeks_to_complete=weeks,
+        binding_constraint=binding,
+        throughput=throughput,
+        peak_backlog_phased=peak_phased,
+        notification_date=notification_date,
+        waves=waves,
+        deadlines=deadlines,
+    )
+    st.download_button(
+        "Download phased launch plan (PDF)",
+        data=pdf_bytes,
+        file_name=f"{row.campaign_number}_phased_launch_plan.pdf",
+        mime="application/pdf",
+    )
+
 # ─────────────────────────────────────────────────────── tab 3
 with tab3:
     section("WAVE SEQUENCING · FULL CAPACITY, ONE REGION AT A TIME")
-
-    affected = int(row.potentially_affected)
-    per_region = affected // regions
-    remainder = affected - per_region * regions
-    region_sizes = [per_region] * regions
-    region_sizes[0] += remainder
-
-    waves, cursor = [], 0
-    for i, size in enumerate(region_sizes):
-        dur = -(-size // throughput)
-        waves.append({
-            "region": f"REGION {i + 1}",
-            "start": cursor + 1,
-            "end": cursor + dur,
-            "weeks": dur,
-            "vehicles": size,
-        })
-        cursor += dur
-    wave_df = pd.DataFrame(waves)
-
-    par_dur = -(-max(region_sizes) // max(throughput // regions, 1))
 
     f = go.Figure()
     for w in waves:
