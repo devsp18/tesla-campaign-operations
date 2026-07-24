@@ -29,7 +29,9 @@ Software and hardware campaigns are filed at nearly the same rate, 33 vs 34, but
 
 ## Live demo
 
-Not deployed yet. Run it locally with the commands in [Reproducing the results](#reproducing-the-results). A live Streamlit Community Cloud link and screenshots will be added here once deployed.
+**[satyam-tesla-campaign-operations.streamlit.app](https://satyam-tesla-campaign-operations.streamlit.app/)**
+
+Screenshots coming soon.
 
 ## What the dashboard shows
 
