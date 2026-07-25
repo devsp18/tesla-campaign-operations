@@ -156,7 +156,7 @@ def build_launch_plan_pdf(
     _section_label(pdf, "Completion Trajectory and Reporting Checkpoints", y)
     y += 7
     headers2 = ["Quarter", "Due Date", "Rollout Week", "Status"]
-    widths2 = [24, 34, 34, 40]
+    widths2 = [20, 28, 26, 68]
     pdf.set_xy(12, y)
     pdf.set_fill_color(*INK)
     pdf.set_text_color(*WHITE)
@@ -164,13 +164,16 @@ def build_launch_plan_pdf(
     for h, w in zip(headers2, widths2):
         pdf.cell(w, 6, h.upper(), border=0, fill=True, align="L")
     y += 6
-    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_font("Helvetica", "", 8)
     for i, dl in enumerate(deadlines, start=1):
         pdf.set_xy(12, y)
         fill = (245, 244, 240) if i % 2 else (255, 255, 255)
         pdf.set_fill_color(*fill)
-        status = "Cleared" if dl["cleared"] else "At risk: below 100%"
-        status_color = INK if dl["cleared"] else RED
+        if dl["complete"]:
+            status, status_color = "Complete", INK
+        else:
+            status = f"In progress: {dl['pct_complete']*100:.0f}% complete at deadline"
+            status_color = RED
         wk_label = f"{dl['week']:.0f}" if dl["week"] >= 0 else "before start"
         cells = [f"Q{i}", dl["due_date"].isoformat(), wk_label]
         for val, cw in zip(cells, widths2[:3]):
@@ -182,15 +185,18 @@ def build_launch_plan_pdf(
 
     y += 6
     pdf.set_xy(12, y)
-    n_cleared = sum(1 for d in deadlines if d["cleared"])
+    n_complete = sum(1 for d in deadlines if d["complete"])
     pdf.set_text_color(*MID)
     pdf.set_font("Courier", "", 7.5)
     pdf.multi_cell(
         pdf.w - 24, 4,
-        f"{n_cleared} of 6 quarterly completion report deadlines show full "
-        f"completion under this scenario. 49 CFR 573.7(a): six consecutive "
-        f"quarters or completion on all affected vehicles, whichever comes "
-        f"first, starting the quarter owner notification is sent.",
+        f"{n_complete} of 6 quarterly completion report deadlines show "
+        f"full completion under this scenario. The rest still require "
+        f"filing a report showing partial completion; 49 CFR 573.7(a) "
+        f"requires a report every quarter regardless of completion rate, "
+        f"not 100% completion by any particular quarter, so partial "
+        f"completion at a deadline is expected progress, not a compliance "
+        f"risk.",
     )
 
     pdf.set_xy(12, pdf.h - 18)

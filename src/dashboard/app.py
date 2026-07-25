@@ -505,7 +505,7 @@ with tab2:
     for i, dl in enumerate(deadlines, start=1):
         wk = dl["week"]
         if 0 <= wk <= max(weeks, 1):
-            vcolor = INK if dl["cleared"] else RED
+            vcolor = INK if dl["complete"] else RED
             f.add_vline(
                 x=wk, line=dict(color=vcolor, width=1.5, dash="dash"),
                 annotation_text=f"Q{i}",
@@ -526,15 +526,19 @@ with tab2:
         "<p style='font-family:JetBrains Mono,monospace;font-size:10px;"
         "color:#b0ada5;'>Q1&ndash;Q6 mark the 49 CFR 573.7(a) quarterly "
         "completion report deadlines computed from the owner notification "
-        "date in the sidebar. INK = fully complete by that week. RED = "
-        "that quarter's report would show a completion rate below 100%. "
-        "Completion-over-time here is modeled, not observed. NHTSA "
-        "does not publish it at campaign level.</p>", unsafe_allow_html=True)
+        "date in the sidebar. INK = complete by that week. RED = in "
+        "progress, below 100% complete at that week. 573.7(a) requires "
+        "filing a report every quarter regardless of completion rate, so "
+        "in-progress is not a compliance risk, it is the expected state "
+        "of an active campaign. Completion-over-time here is modeled, "
+        "not observed. NHTSA does not publish it at campaign level.</p>",
+        unsafe_allow_html=True)
 
-    n_cleared = sum(1 for d in deadlines if d["cleared"])
+    n_complete = sum(1 for d in deadlines if d["complete"])
     for i, dl in enumerate(deadlines, start=1):
-        cls = "badge-good" if dl["cleared"] else "badge-risk"
-        label = "CLEARED" if dl["cleared"] else "AT RISK"
+        cls = "badge-good" if dl["complete"] else "badge-risk"
+        label = ("Complete" if dl["complete"]
+                 else f"In progress: {dl['pct_complete']*100:.0f}% complete at deadline")
         in_window = "inside rollout window" if 0 <= dl["week"] <= weeks \
             else "outside plotted range"
         st.markdown(f"""<div class='row-item'>
@@ -547,9 +551,11 @@ with tab2:
             </div></div>""", unsafe_allow_html=True)
     st.markdown(
         f"<p style='font-family:JetBrains Mono,monospace;font-size:10px;"
-        f"color:#b0ada5;margin-top:8px;'>{n_cleared} of 6 quarterly "
+        f"color:#b0ada5;margin-top:8px;'>{n_complete} of 6 quarterly "
         f"deadlines already show full completion under this capacity "
-        f"scenario.</p>", unsafe_allow_html=True)
+        f"scenario. The rest still require filing a report showing "
+        f"partial completion, which 49 CFR 573.7(a) requires regardless "
+        f"of completion rate.</p>", unsafe_allow_html=True)
 
     st.markdown(f"""<div class='finding-card accent-red'>
         <div class='finding-label'>THE RESULT</div>

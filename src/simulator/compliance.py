@@ -76,10 +76,18 @@ def deadlines_with_status(
     notification_date: dt.date, weekly_cumulative: dict[int, float], total_affected: int
 ) -> list[dict]:
     """For each of the six quarterly deadlines, the due date, the rollout
-    week it falls in (week 1 = the first week after notification), and
-    whether cumulative completion had already reached the full affected
-    population by that week ("cleared") or not ("at risk": that quarter's
-    report would show a completion rate below 100%).
+    week it falls in (week 1 = the first week after notification), the
+    completion percentage at that week, and whether cumulative completion
+    had already reached the full affected population by that week
+    ("complete") or not ("in progress").
+
+    49 CFR 573.7(a) requires filing a completion report every quarter
+    regardless of the completion rate; it does not require 100% completion
+    by any particular quarter. A campaign still in progress at a deadline
+    is not non-compliant or at risk of anything: filing a report showing
+    partial completion is exactly what the regulation calls for. This
+    status describes rollout progress against the capacity scenario, not
+    compliance risk, and callers should not label it as risk.
 
     weekly_cumulative maps week_number -> cumulative vehicles completed,
     for a single strategy's schedule.
@@ -95,11 +103,13 @@ def deadlines_with_status(
             cumulative = weekly_cumulative.get(max_week, 0)
         else:
             cumulative = weekly_cumulative.get(week_floor, 0)
-        cleared = cumulative >= total_affected
+        complete = cumulative >= total_affected
+        pct_complete = min(1.0, cumulative / total_affected) if total_affected else 0.0
         results.append({
             "due_date": due,
             "week": week,
             "cumulative": cumulative,
-            "cleared": cleared,
+            "pct_complete": pct_complete,
+            "complete": complete,
         })
     return results
