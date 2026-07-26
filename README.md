@@ -10,9 +10,9 @@ A rollout plan is also a compliance plan. 49 CFR 573.7(a) requires a completion 
 
 ## Data sources and the real vs. modeled boundary
 
-**Real** — 86 Tesla campaigns from the public NHTSA recall database, 2013 to 2026, 13,439,275 potentially affected vehicles. Campaign numbers, report dates, components, summaries, remedy text, remedy classification, and affected-vehicle counts all come from NHTSA.
+**Real** - 86 Tesla campaigns from the public NHTSA recall database, 2013 to 2026, 13,439,275 potentially affected vehicles. Campaign numbers, report dates, components, summaries, remedy text, remedy classification, and affected-vehicle counts all come from NHTSA.
 
-**Modeled** — every weekly capacity input (parts per week, service slots per week, region count), every rollout schedule, backlog curve, completion curve, and wave timeline derived from them, and the owner notification date used to anchor the six 49 CFR 573.7(a) quarterly deadlines. The deadline dates themselves are computed from the regulation's fixed calendar rule (verified against the current CFR text); it is the notification date they are anchored to, and therefore where each deadline lands relative to the rollout, that is a planning input, not an observed one.
+**Modeled** - every weekly capacity input (parts per week, service slots per week, region count), every rollout schedule, backlog curve, completion curve, and wave timeline derived from them, and the owner notification date used to anchor the six 49 CFR 573.7(a) quarterly deadlines. The deadline dates themselves are computed from the regulation's fixed calendar rule (verified against the current CFR text); it is the notification date they are anchored to, and therefore where each deadline lands relative to the rollout, that is a planning input, not an observed one.
 
 NHTSA does not publish completion-over-time at the campaign level, so no curve in this project represents observed Tesla performance. The boundary is enforced structurally in the database: `campaigns` and `remedy_categories` hold real NHTSA data, `rollout_scenarios` and `rollout_schedule` hold modeled output.
 
@@ -37,11 +37,11 @@ Screenshots coming soon.
 
 ## What the dashboard shows
 
-1. **Portfolio Mix** — Answers whether software and hardware campaigns are filed at similar rates. Shows campaign counts and vehicles reached by remedy type, with finding cards on OTA share and median hardware campaign size.
-2. **Rollout Planner** — Answers whether phasing a rollout changes when it finishes, and whether it clears its federal reporting checkpoints. Plots backlog and cumulative repairs for a notify-all vs a capacity-matched strategy against the selected campaign's real vehicle count, overlaid with the six 49 CFR 573.7(a) quarterly completion report deadlines computed from a configurable owner notification date, each marked cleared or at risk of a sub-100% completion rate. A one-page phased launch plan, covering wave order, weekly invitation volumes, regional gates, the completion trajectory, and which deadlines fall inside the rollout window, is downloadable as a PDF from this tab.
-3. **Regional Sequencing** — Answers whether a campaign should serve one region at a time or all regions in parallel. Compares a wave Gantt against parallel rollout and ranks campaigns by capacity burden.
-4. **Constraint Analysis** — Answers which input, parts or service slots, is actually limiting completion time. A 5x5 sensitivity heatmap shows weeks to complete across capacity combinations.
-5. **Campaign Register** — Answers what the full campaign inventory looks like at a glance. Lists the top 25 campaigns by vehicles affected with remedy badges, plus any saved simulator scenarios.
+1. **Portfolio Mix** - Answers whether software and hardware campaigns are filed at similar rates. Shows campaign counts and vehicles reached by remedy type, with finding cards on OTA share and median hardware campaign size.
+2. **Rollout Planner** - Answers whether phasing a rollout changes when it finishes, and whether it clears its federal reporting checkpoints. Plots backlog and cumulative repairs for a notify-all vs a capacity-matched strategy against the selected campaign's real vehicle count, overlaid with the six 49 CFR 573.7(a) quarterly completion report deadlines computed from a configurable owner notification date, each marked cleared or at risk of a sub-100% completion rate. A one-page phased launch plan, covering wave order, weekly invitation volumes, regional gates, the completion trajectory, and which deadlines fall inside the rollout window, is downloadable as a PDF from this tab.
+3. **Regional Sequencing** - Answers whether a campaign should serve one region at a time or all regions in parallel. Compares a wave Gantt against parallel rollout and ranks campaigns by capacity burden.
+4. **Constraint Analysis** - Answers which input, parts or service slots, is actually limiting completion time. A 5x5 sensitivity heatmap shows weeks to complete across capacity combinations.
+5. **Campaign Register** - Answers what the full campaign inventory looks like at a glance. Lists the top 25 campaigns by vehicles affected with remedy badges, plus any saved simulator scenarios.
 
 ## Repository structure
 
